@@ -7,8 +7,7 @@ The answer, obviously, was to buy another computer.
 # The Mission
 Project COMPANION was born out of three very specific holiday anxieties:
 
-"What if I lose my laptop data on vacation?"
-Solution: Build a tiny machine that silently sucks up files from every device in the room like a digital vacuum cleaner and shoots them home to TrueNAS while you sleep.
+"What if we lose our laptop/mobile data on vacation? " Solution: Build a tiny machine that silently sucks up files from every device in the room like a digital vacuum cleaner and shoots them home to TrueNAS while you sleep.
 
 "What if my main laptop dies abroad?"
 Solution: The same tiny machine is also secretly a full desktop computer. Pop in a keyboard, plug it into the hotel TV, and carry on like nothing happened.
