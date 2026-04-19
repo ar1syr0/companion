@@ -1,0 +1,420 @@
+---
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Run:    ansible-playbook ~/companion-playbook.yml \        ║
+# ║            --ask-become-pass                                 ║
+# ║                                                              ║
+# ║  Project COMPANION — Full Automated OS Setup                 ║
+# ║  Debian 13 Trixie Compatible                                 ║
+# ║                                                              ║
+# ║  This single file handles:                                   ║
+# ║    - System packages & updates                               ║
+# ║    - SSH server & hardening                                  ║
+# ║    - Network services (Avahi, NetworkManager)                ║
+# ║    - Sleep target masking                                    ║
+# ║    - Firewall (UFW)                                          ║
+# ║    - Tailscale VPN                                           ║
+# ║    - Docker Engine + Compose plugin                          ║
+# ║    - Project directory structure                             ║
+# ║    - Docker Compose stack (Portainer, Syncthing, Pi-hole)    ║
+# ║    - RetroArch (fault-tolerant, skips unavailable cores)     ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+- name: Project Companion — Full Base Setup
+  hosts: localhost
+  connection: local
+  become: true
+
+  vars:
+    # ── User Configuration ───────────────────────────────────────
+    companion_user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
+    companion_home: "/home/{{ companion_user }}"
+    companion_root: "{{ companion_home }}/companion"
+
+    # ── Base System Utilities ────────────────────────────────────
+    base_packages:
+      - sudo
+      - curl
+      - wget
+      - git
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      - apt-transport-https
+
+    # ── SSH Server ───────────────────────────────────────────────
+    ssh_packages:
+      - openssh-server
+
+    # ── Network Services ─────────────────────────────────────────
+    network_packages:
+      - avahi-daemon
+      - network-manager
+
+    # ── Firewall ─────────────────────────────────────────────────
+    firewall_packages:
+      - ufw
+
+    # ── Bluetooth ────────────────────────────────────────────────
+    bluetooth_packages:
+      - blueman
+
+    # ── Docker Compose Plugin ────────────────────────────────────
+    docker_packages:
+      - docker-compose-plugin
+
+    # ── XFCE Failsafe Desktop Apps ───────────────────────────────
+    desktop_packages:
+      - firefox-esr
+      - thunar
+      - vlc
+      - filezilla
+      - htop
+      - btop
+      - tmux
+
+    # ── RetroArch Base (Must succeed) ────────────────────────────
+    retroarch_base:
+      - retroarch
+      - libretro-core-info
+      - retroarch-assets
+
+    # ── RetroArch Cores (Optional — skips if unavailable) ────────
+    # NOTE: Any core that fails to install via APT can be added
+    # manually later via RetroArch > Online Updater > Core Downloader
+    retroarch_cores:
+      - libretro-snes9x
+      - libretro-mgba
+      - libretro-genesisplusgx
+      - libretro-pcsx-rearmed
+
+    # ── Sleep Targets to Mask ────────────────────────────────────
+    sleep_targets:
+      - sleep.target
+      - suspend.target
+      - hibernate.target
+      - hybrid-sleep.target
+
+    # ── SSH Hardening Settings ───────────────────────────────────
+    sshd_settings:
+      - { key: "PermitRootLogin",       value: "no"  }
+      - { key: "PasswordAuthentication", value: "no"  }
+      - { key: "PermitEmptyPasswords",  value: "no"  }
+      - { key: "MaxAuthTries",          value: "3"   }
+      - { key: "X11Forwarding",         value: "no"  }
+      - { key: "ClientAliveInterval",   value: "300" }
+      - { key: "ClientAliveCountMax",   value: "3"   }
+
+    # ── Project Directory Structure ──────────────────────────────
+    companion_directories:
+      - "{{ companion_root }}/services/portainer/data"
+      - "{{ companion_root }}/services/syncthing/config"
+      - "{{ companion_root }}/services/pihole/etc-pihole"
+      - "{{ companion_root }}/services/pihole/etc-dnsmasq.d"
+      - "{{ companion_root }}/backups/laptops"
+      - "{{ companion_root }}/backups/mobile"
+      - "{{ companion_root }}/backups/staging"
+      - "{{ companion_root }}/roms/ps1"
+      - "{{ companion_root }}/roms/snes"
+      - "{{ companion_root }}/roms/gba"
+      - "{{ companion_root }}/roms/genesis"
+
+    # ── Docker Compose Stack ─────────────────────────────────────
+    docker_compose_content: |
+      ---
+      # Project Companion — Docker Compose Stack
+      # Start:  docker compose up -d
+      # Stop:   docker compose down
+      # Status: docker compose ps
+
+      services:
+
+        portainer:
+          image: portainer/portainer-ce:latest
+          container_name: portainer
+          restart: always
+          ports:
+            - "8000:8000"
+            - "9000:9000"
+            - "9443:9443"
+          volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./services/portainer/data:/data
+
+        syncthing:
+          image: lscr.io/linuxserver/syncthing:latest
+          container_name: syncthing
+          restart: unless-stopped
+          environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/London
+          ports:
+            - "8384:8384"
+            - "22000:22000/tcp"
+            - "22000:22000/udp"
+            - "21027:21027/udp"
+          volumes:
+            - ./services/syncthing/config:/config
+            - ./backups:/data/backups
+
+        pihole:
+          image: pihole/pihole:latest
+          container_name: pihole
+          restart: unless-stopped
+          environment:
+            TZ: Europe/London
+            WEBPASSWORD: ChangeThisPassword
+          ports:
+            - "53:53/tcp"
+            - "53:53/udp"
+            - "8081:80/tcp"
+          volumes:
+            - ./services/pihole/etc-pihole:/etc/pihole
+            - ./services/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+
+  tasks:
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 1: System Update
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Update APT cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Full system upgrade
+      apt:
+        upgrade: full
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 2: Package Installation
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Install base system utilities
+      apt:
+        name: "{{ base_packages }}"
+        state: present
+
+    - name: Install SSH server
+      apt:
+        name: "{{ ssh_packages }}"
+        state: present
+
+    - name: Install network service packages
+      apt:
+        name: "{{ network_packages }}"
+        state: present
+
+    - name: Install firewall
+      apt:
+        name: "{{ firewall_packages }}"
+        state: present
+
+    - name: Install Bluetooth GUI manager
+      apt:
+        name: "{{ bluetooth_packages }}"
+        state: present
+
+    - name: Install desktop environment apps
+      apt:
+        name: "{{ desktop_packages }}"
+        state: present
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 3: SSH Hardening
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Enable and start SSH
+      systemd:
+        name: ssh
+        enabled: true
+        state: started
+
+    - name: Harden sshd_config settings
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?{{ item.key }}\\s'
+        line: "{{ item.key }} {{ item.value }}"
+        state: present
+        validate: "sshd -t -f %s"
+      loop: "{{ sshd_settings }}"
+      notify: restart ssh
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 4: Network Services
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Enable and start Avahi (mDNS)
+      systemd:
+        name: avahi-daemon
+        enabled: true
+        state: started
+
+    - name: Enable and start NetworkManager
+      systemd:
+        name: NetworkManager
+        enabled: true
+        state: started
+
+    - name: Mask sleep targets for headless stability
+      systemd:
+        name: "{{ item }}"
+        masked: true
+      loop: "{{ sleep_targets }}"
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 5: Firewall
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Allow SSH through UFW
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+      ignore_errors: true
+
+    - name: Enable UFW firewall
+      community.general.ufw:
+        state: enabled
+      ignore_errors: true
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 6: Tailscale
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Install Tailscale
+      shell: curl -fsSL https://tailscale.com/install.sh | sh
+      args:
+        creates: /usr/bin/tailscale
+      # NOTE: After playbook completes run: sudo tailscale up
+      # Browser authentication required on first run.
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 7: Docker Engine
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Install Docker Engine
+      shell: curl -fsSL https://get.docker.com | sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Install Docker Compose plugin
+      apt:
+        name: "{{ docker_packages }}"
+        state: present
+
+    - name: Ensure docker group exists
+      group:
+        name: docker
+        state: present
+
+    - name: Add user to docker group
+      user:
+        name: "{{ companion_user }}"
+        groups: docker
+        append: true
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 8: RetroArch (Fault-Tolerant)
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Install RetroArch base system (required)
+      apt:
+        name: "{{ retroarch_base }}"
+        state: present
+
+    - name: Install RetroArch emulation cores (skips unavailable packages)
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ retroarch_cores }}"
+      ignore_errors: true
+      register: core_results
+
+    - name: Report any skipped cores
+      debug:
+        msg: >
+          WARNING: Core '{{ item.item }}' could not be installed via APT.
+          You can install it manually inside RetroArch via:
+          Main Menu > Online Updater > Core Downloader
+      when: item.failed is defined and item.failed
+      loop: "{{ core_results.results }}"
+
+    - name: Ensure RetroArch config directory exists
+      file:
+        path: "{{ companion_home }}/.config/retroarch"
+        state: directory
+        owner: "{{ companion_user }}"
+        group: "{{ companion_user }}"
+        mode: '0755'
+
+    - name: Configure RetroArch to use Debian 13 core paths
+      copy:
+        dest: "{{ companion_home }}/.config/retroarch/retroarch.cfg"
+        content: |
+          libretro_directory = "/usr/lib/x86_64-linux-gnu/libretro"
+          libretro_info_path = "/usr/share/libretro/info"
+        owner: "{{ companion_user }}"
+        group: "{{ companion_user }}"
+        mode: '0644'
+        force: no
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 9: Project Directory Structure
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Create companion project directory tree
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ companion_user }}"
+        group: "{{ companion_user }}"
+        mode: '0755'
+      loop: "{{ companion_directories }}"
+
+    # ─────────────────────────────────────────────────────────────
+    # Phase 10: Docker Compose Stack
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Write docker-compose.yml to companion root
+      copy:
+        dest: "{{ companion_root }}/docker-compose.yml"
+        content: "{{ docker_compose_content }}"
+        owner: "{{ companion_user }}"
+        group: "{{ companion_user }}"
+        mode: '0644'
+
+    - name: Start all Docker services
+      shell: docker compose up -d
+      args:
+        chdir: "{{ companion_root }}"
+
+    # ─────────────────────────────────────────────────────────────
+    # Done
+    # ─────────────────────────────────────────────────────────────
+
+    - name: Setup Complete — Post-Install Checklist
+      debug:
+        msg: |
+          ✅ Project Companion setup complete.
+
+          Manual steps remaining:
+          ─────────────────────────────────────────
+          1. Log out and back in (docker group takes effect)
+          2. Run: sudo tailscale up  (browser auth required)
+          3. Configure WiFi Hotspot:
+             nmcli device wifi hotspot ifname wlan0 ssid CompanionHub password 'YourPassword'
+          4. Access Portainer at http://companion.local:9000
+             → Create admin account immediately
+          5. Change Pi-hole password in:
+             ~/companion/docker-compose.yml (WEBPASSWORD)
+          6. Open Syncthing at http://companion.local:8384
+             → Pair your devices and set folder roles
+          ─────────────────────────────────────────
+
+  # ── Handlers ───────────────────────────────────────────────────
+  handlers:
+    - name: restart ssh
+      systemd:
+        name: ssh
+        state: restarted
