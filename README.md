@@ -1,6 +1,3 @@
-# Project COMPANION by ar1syro
- Travel mini PC — local backup hub, TrueNAS relay, failsafe desktop, hotel-room retro console
-
 ---
 # Project COMPANION — What Is This Thing?
 So there I was, staring at my ever-growing pile of hard drives, laptops, and the creeping existential dread that comes with realising "what if my main machine dies in a hotel in the middle of nowhere?"
