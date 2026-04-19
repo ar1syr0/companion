@@ -1051,7 +1051,7 @@ nano ~/companion-playbook.yml
 # ║  Run:    ansible-playbook ~/companion-playbook.yml \         ║
 # ║            --ask-become-pass                                 ║
 # ║                                                              ║
-# ║  Full Automated Setup test and builded for:                  ║
+# ║  Full Automated Setup tested and builded for:                ║
 # ║  Debian 13 Trixie                                            ║
 # ║                                                              ║
 # ║  This single file handles:                                   ║
