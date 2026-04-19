@@ -162,23 +162,14 @@ Project Companion supports three network modes:
 
 ## 3.1 Hardware
 
-**Minimum recommended specs:**
+**Minimum recommended specs:** (its what I builded on)
 
 - Intel 12th gen (or equivalent) mini PC
 - 4 cores / 4 threads minimum
 - 12 GB RAM
-- SSD storage (128 GB minimum; 256 GB+ recommended for ROM storage)
 - Built-in Wi-Fi (must support AP mode — check your chipset)
 - Built-in Bluetooth (for controller pairing)
 - HDMI output
-
-**Recommended travel accessories:**
-
-- Portable keyboard (folding or compact)
-- Compact mouse or trackpad
-- HDMI cable (1.5–2 m)
-- Game controller (Bluetooth preferred)
-- USB flash drive (8 GB+, for Debian installer)
 
 ## 3.2 Home Infrastructure
 
@@ -247,7 +238,7 @@ Set the hostname to:
 companion
 ```
 
-After Avahi is configured (§8.1), the machine will be reachable as:
+After Avahi is configured, the machine will be reachable as:
 
 ```
 companion.local
@@ -482,7 +473,7 @@ nmcli connection up Hotspot
 nmcli connection down Hotspot
 ```
 
-> **⚠️ Important:** Not all Wi-Fi chipsets support AP mode. If the hotspot command fails, check your chipset compatibility.
+> **Important:** Not all Wi-Fi chipsets support AP mode. If the hotspot command fails, check your chipset compatibility.
 
 ## 8.3 Tailscale
 
@@ -667,7 +658,7 @@ docker compose ps
 http://companion.local:9000
 ```
 
-> **⚠️ Important:** On first access, Portainer prompts you to create an admin account. Do this **immediately** — Portainer locks itself out if you wait longer than 5 minutes.
+> **Important:** On first access, Portainer prompts you to create an admin account. Do this **immediately** — Portainer locks itself out if you wait longer than 5 minutes.
 
 ---
 
@@ -759,7 +750,7 @@ services:
     restart: unless-stopped
     environment:
       TZ: Europe/London                # Set to your timezone
-      WEBPASSWORD: ChangeThisPassword  # ⚠️ Change before first start
+      WEBPASSWORD: ChangeThisPassword  # Change before first start
     ports:
       - "53:53/tcp"     # DNS (TCP)
       - "53:53/udp"     # DNS (UDP)
@@ -1002,7 +993,7 @@ for svc in ~/companion/services/*/; do (cd "$svc" && docker compose down); done
 
 ## 18.1 Why Use Ansible
 
-Ansible automates the **entire base setup** after a fresh Debian install into a single repeatable command.
+Ansible automates the **entire setup** after a fresh Debian install into a single repeatable command.
 
 **What the playbook automates:**
 
